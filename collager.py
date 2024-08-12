@@ -84,23 +84,8 @@ class CollageGenerator(QMainWindow):
         try:
             self.status_label.setText("Starting collage generation...")
             images = self.load_images(image_folder)
-            if not images:
-                QMessageBox.warning(self, "No Images", "No valid images found in the selected folder.")
-                return
-
-            # Calculate total image dimensions
-            total_width, total_height = self.calculate_total_image_dimensions(images)
-            
-            # Adjust canvas size to fit all images
-            adjusted_canvas_width = min(total_width, canvas_width)
-            adjusted_canvas_height = min(total_height, canvas_height)
-
-            canvas = self.create_blank_canvas(adjusted_canvas_width, adjusted_canvas_height)
-            final_collage = self.arrange_images_in_rows(canvas, images, adjusted_canvas_width, adjusted_canvas_height)
-
-            # Resize final collage to fit user’s chosen resolution
-            final_collage = self.resize_image_keep_aspect_ratio(final_collage, canvas_width, canvas_height)
-
+            canvas = self.create_blank_canvas(canvas_width, canvas_height)
+            final_collage = self.arrange_images_in_rows(canvas, images)
             self.save_collage_image(final_collage, output_file)
             self.status_label.setText(f"Collage generated and saved as {output_file}")
         except Exception as e:
@@ -110,26 +95,12 @@ class CollageGenerator(QMainWindow):
     def load_images(self, image_folder):
         images = []
         for filename in os.listdir(image_folder):
-            if filename.lower().endswith(('png', 'jpg', 'jpeg', 'gif')):
-                try:
-                    img = Image.open(os.path.join(image_folder, filename))
-                    images.append(img)
-                    print(f"Loaded image: {filename}")
-                except Exception as e:
-                    print(f"Error loading image {filename}: {e}")
+            if filename.endswith(('png', 'jpg', 'jpeg', 'gif')):
+                img = Image.open(os.path.join(image_folder, filename))
+                images.append(img)
+                print(f"Loaded image: {filename}")
         print(f"Total images loaded: {len(images)}")
         return images
-
-    def calculate_total_image_dimensions(self, images):
-        total_width = 0
-        max_row_height = 0
-
-        for img in images:
-            img_width, img_height = img.size
-            total_width += img_width
-            max_row_height = max(max_row_height, img_height)
-
-        return total_width, max_row_height
 
     def resize_image_keep_aspect_ratio(self, img, max_width, max_height):
         original_width, original_height = img.size
@@ -138,12 +109,14 @@ class CollageGenerator(QMainWindow):
         new_height = int(original_height * ratio)
         return img.resize((new_width, new_height), Image.LANCZOS)
 
-    def arrange_images_in_rows(self, canvas, images, canvas_width, canvas_height):
+    def arrange_images_in_rows(self, canvas, images):
+        canvas_width, canvas_height = canvas.size
         x, y = 0, 0
         row_height = 0
+        placed_images = []
 
         for img in images:
-            img = self.resize_image_keep_aspect_ratio(img, canvas_width, canvas_height)
+            img = self.resize_image_keep_aspect_ratio(img, canvas_width // 3, canvas_height // 3)
             img_width, img_height = img.size
 
             if x + img_width > canvas_width:
@@ -155,6 +128,8 @@ class CollageGenerator(QMainWindow):
                 break
 
             canvas.paste(img, (x, y))
+            placed_images.append((x, y, img_width, img_height))
+
             x += img_width
             row_height = max(row_height, img_height)
 
